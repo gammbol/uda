@@ -1,17 +1,18 @@
 cmake_minimum_required(VERSION 3.30)
 project(uda)
 
+set(CROW_USE_BOOST ON)
+
 set(CMAKE_CXX_STANDARD 20)
 
 # Firebird
 if (WIN32)
-    find_path(FBCLIENT_INCLUDE_DIR ibase.h
-            "C:\\Program Files\\Firebird\\Firebird_5_0\\include"
-    )
+    set(FBCLIENT_INCLUDE_DIR "C:\\Program Files\\Firebird\\Firebird_5_0\\include")
 
     find_library(FBCLIENT_LIB
             NAMES fbclient_ms fbclient
             PATHS "C:/Program Files/Firebird/Firebird_5_0/lib"
+            NO_DEFAULT_PATH
     )
 
     find_library(FBUTIL_LIB

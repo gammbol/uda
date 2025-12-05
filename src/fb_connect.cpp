@@ -1,5 +1,4 @@
 #include <fb_connect.h>
-#include <firebird/Interface.h>
 
 void FirebirdConnection::fbInit() {
   master = fb_get_master_interface();
@@ -20,6 +19,8 @@ FirebirdConnection::~FirebirdConnection() {
 }
 
 void FirebirdConnection::newConnection(FBConnectionStruct conf) {
+  if (isConnected) disconnect();
+
   fbInit();
   config = conf;
 }
