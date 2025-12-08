@@ -4,33 +4,30 @@
 #include <firebird/Interface.h>
 #include <string>
 #include <vector>
-#include <format>
 #include <iostream>
-
 #include <crow/json.h>
 
-using namespace Firebird;
-
-typedef struct FBConnectionStruct {
+struct FBConnectionStruct {
   std::string db_path;
   std::string db_user;
   std::string db_password;
   std::string db_host;
   std::string db_port;
-} FBConnectionStruct;
+};
 
 class FirebirdConnection {
 private:
   bool isConnected = false;
 
   // api
-  IMaster *master;IStatus *st;
-  IUtil *utl;
-  IXpbBuilder *dpb;
+  Firebird::IMaster* master = nullptr;
+  Firebird::IStatus* rawStatus = nullptr;  // Переименован, чтобы было понятнее
+  Firebird::IUtil* utl = nullptr;
+  Firebird::IXpbBuilder* dpb = nullptr;
 
   // connection
-  IProvider *provider;
-  IAttachment *attachment;
+  Firebird::IProvider* provider = nullptr;
+  Firebird::IAttachment* attachment = nullptr;
 
   FBConnectionStruct config;
 
@@ -45,8 +42,7 @@ public:
   bool connect();
   void disconnect();
 
-  std::vector<crow::json::wvalue> getSQL(std::string query);
+  std::vector<crow::json::wvalue> getSQL(const std::string& query);
 };
 
-
-#endif //FB_CONNECT_H
+#endif // FB_CONNECT_H
