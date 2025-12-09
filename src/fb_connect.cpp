@@ -1,5 +1,6 @@
 #include "fb_connect.h"
 #include <format>
+#include <sstream>
 
 void FirebirdConnection::fbInit() {
     using namespace Firebird;
@@ -87,8 +88,7 @@ bool FirebirdConnection::connect() {
         dpb->insertInt(&status, isc_dpb_sql_dialect, 3);
 
         // connection string
-        std::string connection_string = std::format("{}/{}:{}",
-            config.db_host, config.db_port, config.db_path);
+        std::string connection_string = config.db_host + "/" + config.db_port + ":" + config.db_path;
 
         // getting provider interface
         provider = master->getDispatcher();
@@ -154,40 +154,42 @@ std::vector<crow::json::wvalue> FirebirdConnection::getSQL(const std::string& qu
     IResultSet* rs = nullptr;
     unsigned char* buffer = nullptr;
 
-    try {
-        ThrowStatusWrapper status(rawStatus);
+    // ВАЖНО: Создаем новый объект статуса для этой операции
+    IStatus* localStatus = master->getStatus();
+    ThrowStatusWrapper statusWrapper(localStatus);
 
+    try {
         // 1. Начинаем транзакцию
-        transaction = attachment->startTransaction(&status, 0, nullptr);
+        transaction = attachment->startTransaction(&statusWrapper, 0, nullptr);
 
         // 2. Подготавливаем запрос
-        stmt = attachment->prepare(&status, transaction, 0,
+        stmt = attachment->prepare(&statusWrapper, transaction, 0,
                                    query.c_str(), SQL_DIALECT_V6, 0);
 
         // 3. Получаем метаданные результата
-        meta = stmt->getOutputMetadata(&status);
+        meta = stmt->getOutputMetadata(&statusWrapper);
 
         // 4. Вычисляем размер буфера
-        unsigned int msg_len = meta->getMessageLength(&status);
+        unsigned int msg_len = meta->getMessageLength(&statusWrapper);
         buffer = new unsigned char[msg_len];
 
         // 5. Открываем курсор
-        rs = stmt->openCursor(&status, transaction, nullptr, nullptr, meta, 0);
+        rs = stmt->openCursor(&statusWrapper, transaction, nullptr, nullptr, meta, 0);
 
         // 6. Читаем строки
-        while (rs->fetchNext(&status, buffer) == IStatus::RESULT_OK) {
+        while (rs->fetchNext(&statusWrapper, buffer) == IStatus::RESULT_OK) {
             crow::json::wvalue row_json;
 
-            for (unsigned int i = 0; i < meta->getCount(&status); i++) {
+            for (unsigned int i = 0; i < meta->getCount(&statusWrapper); i++) {
                 // Получаем имя поля
-                const char* field_name_cstr = meta->getField(&status, i);
+                const char* field_name_cstr = meta->getField(&statusWrapper, i);
                 std::string field_name = field_name_cstr ? field_name_cstr : "";
 
                 // Получаем смещение для NULL флага и данных
-                unsigned int null_offset = meta->getNullOffset(&status, i);
-                unsigned int data_offset = meta->getOffset(&status, i);
-                unsigned int type = meta->getType(&status, i);
-                unsigned int len = meta->getLength(&status, i);
+                unsigned int null_offset = meta->getNullOffset(&statusWrapper, i);
+                unsigned int data_offset = meta->getOffset(&statusWrapper, i);
+                unsigned int type = meta->getType(&statusWrapper, i);
+                unsigned int len = meta->getLength(&statusWrapper, i);
 
                 // Проверяем NULL
                 bool is_null = (buffer[null_offset] != 0);
@@ -195,7 +197,7 @@ std::vector<crow::json::wvalue> FirebirdConnection::getSQL(const std::string& qu
                 if (is_null) {
                     row_json[field_name] = nullptr;
                 } else {
-                    switch (type & ~1) { // Игнорируем флаг NULLABLE
+                    switch (type & ~1) {
                         case SQL_VARYING: {
                             unsigned char* field_start = buffer + data_offset;
                             unsigned short str_len = *(unsigned short*)field_start;
@@ -205,7 +207,6 @@ std::vector<crow::json::wvalue> FirebirdConnection::getSQL(const std::string& qu
                         }
                         case SQL_TEXT: {
                             const char* text_data = (const char*)(buffer + data_offset);
-                            // Убираем завершающие пробелы для CHAR полей
                             int real_len = len;
                             while (real_len > 0 && text_data[real_len - 1] == ' ') {
                                 real_len--;
@@ -249,53 +250,98 @@ std::vector<crow::json::wvalue> FirebirdConnection::getSQL(const std::string& qu
                     }
                 }
             }
-
             result_json.push_back(std::move(row_json));
         }
 
         // 7. Фиксируем транзакцию
-        transaction->commit(&status);
+        transaction->commit(&statusWrapper);
 
     } catch (const FbException& e) {
-        std::cerr << "Firebird query error: " << e.getStatus() << std::endl;
+        // Анализируем ошибку
+        if (e.getStatus()) {
+            const ISC_STATUS* errors = e.getStatus()->getErrors();
+            if (errors) {
+                std::cerr << "Error codes: ";
+                for (int i = 0; i < 5 && errors[i] != isc_arg_end; i++) {
+                    std::cerr << errors[i] << " ";
+                }
+                std::cerr << std::endl;
+
+                if (errors[1] != 0) {
+                    std::cerr << "SQLCODE: " << errors[1] << std::endl;
+
+                    // Распространенные коды ошибок prepare:
+                    switch (errors[1]) {
+                        case 335544569:
+                            std::cerr << "ERROR: Network connection lost during query preparation" << std::endl;
+                        break;
+                        case 335544436: // isc_sqlerr
+                            std::cerr << "ERROR: SQL syntax error in query" << std::endl;
+                        break;
+                        case 335544347: // isc_no_cur_rec
+                            std::cerr << "ERROR: No current record for operation" << std::endl;
+                        break;
+                        case 335544453: // isc_stream_eof
+                            std::cerr << "ERROR: End of file reached unexpectedly" << std::endl;
+                        break;
+                        default:
+                            std::cerr << "Unknown Firebird error" << std::endl;
+                    }
+                }
+            }
+        }
+
+        // Если транзакция была создана, пытаемся откатить
         if (transaction) {
             try {
-                ThrowStatusWrapper status(rawStatus);
-                transaction->rollback(&status);
+                // Для отката нужен новый статус
+                IStatus* rollbackStatus = master->getStatus();
+                ThrowStatusWrapper rollbackWrapper(rollbackStatus);
+                transaction->rollback(&rollbackWrapper);
+                rollbackStatus->dispose();
             } catch (...) {
                 // Игнорируем ошибки отката
             }
         }
-        throw std::runtime_error("FIREBIRD connection error");
+
+        throw std::runtime_error("Firebird query failed");
+
     } catch (const std::exception& e) {
-        std::cerr << "Query error: " << e.what() << std::endl;
+        std::cerr << "General error: " << e.what() << std::endl;
+
+        // Откатываем транзакцию при любой другой ошибке
         if (transaction) {
             try {
-                ThrowStatusWrapper status(rawStatus);
-                transaction->rollback(&status);
+                IStatus* rollbackStatus = master->getStatus();
+                ThrowStatusWrapper rollbackWrapper(rollbackStatus);
+                transaction->rollback(&rollbackWrapper);
+                rollbackStatus->dispose();
             } catch (...) {
                 // Игнорируем ошибки отката
             }
         }
         throw;
-    }
 
-    // Освобождаем ресурсы
-    if (buffer) {
-        delete[] buffer;
-    }
-    if (rs) {
-        rs->release();
-    }
-    if (meta) {
-        meta->release();
-    }
-    if (stmt) {
-        stmt->release();
-    }
-    if (transaction) {
-        transaction->release();
-    }
+    } finally_cleanup:
+        // Освобождаем ресурсы
+        if (buffer) {
+            delete[] buffer;
+        }
+        if (rs) {
+            rs->release();
+        }
+        if (meta) {
+            meta->release();
+        }
+        if (stmt) {
+            stmt->release();
+        }
+        if (transaction) {
+            transaction->release();
+        }
+        if (localStatus) {
+            localStatus->dispose();
+        }
 
     return result_json;
 }
