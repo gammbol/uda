@@ -15,16 +15,18 @@ int main()
         "3050"
     };
 
-    // std::cout << "Connecting to Firebird database..." << std::endl;
-    // if (!fbc.connect()) {
-    //     std::cerr << "FATAL: Failed to connect to database on startup!" << std::endl;
-    //     return 1; // Завершаем приложение, если не удалось подключиться
-    // }
-    // std::cout << "Successfully connected to database!" << std::endl;
+    FirebirdConnection fbc(fb_conf);
 
-    CROW_ROUTE(app, "/api/boards")([&fb_conf]() {
+    std::cout << "Connecting to Firebird database..." << std::endl;
+    if (!fbc.connect()) {
+        std::cerr << "FATAL: Failed to connect to database on startup!" << std::endl;
+        return 1; // Завершаем приложение, если не удалось подключиться
+    }
+    std::cout << "Successfully connected to database!" << std::endl;
+
+    CROW_ROUTE(app, "/api/boards")([&fbc]() {
         try {
-            FirebirdConnection fbc(fb_conf);
+            // FirebirdConnection fbc(fb_conf);
 
             // Получаем данные из БД
             std::vector<crow::json::wvalue> boards = fbc.getSQL("SELECT * FROM DEVICES");
@@ -45,9 +47,9 @@ int main()
         }
     });
 
-    CROW_ROUTE(app, "/api/boards/<int>")([&fb_conf](int id) {
+    CROW_ROUTE(app, "/api/boards/<int>")([&fbc](int id) {
         try {
-            FirebirdConnection fbc(fb_conf);
+            // FirebirdConnection fbc(fb_conf);
 
             std::string query = "SELECT * FROM DEVICES WHERE DEVICE_ID=" + std::to_string(id);
             std::cout << query << std::endl;
@@ -63,9 +65,9 @@ int main()
         }
     });
 
-    CROW_ROUTE(app, "/api/sessions/<int>")([&fb_conf](int id) {
+    CROW_ROUTE(app, "/api/sessions/<int>")([&fbc](int id) {
         try {
-            FirebirdConnection fbc(fb_conf);
+            // FirebirdConnection fbc(fb_conf);
 
             std::string query = "SELECT * FROM RD2_SESSIONS WHERE DEVICE_ID=" + std::to_string(id) + " ORDER BY SESSION_ID DESC";
             std::cout << query << std::endl;
@@ -85,9 +87,9 @@ int main()
         }
     });
 
-    CROW_ROUTE(app, "/api/session/<int>")([&fb_conf](int id) {
+    CROW_ROUTE(app, "/api/session/<int>")([&fbc](int id) {
         try {
-            FirebirdConnection fbc(fb_conf);
+            // FirebirdConnection fbc(fb_conf);
 
             std::string query = "SELECT * FROM RD2_SESSIONS WHERE SESSION_ID=" + std::to_string(id);
             std::cout << query << std::endl;
@@ -106,9 +108,9 @@ int main()
         }
     });
 
-    CROW_ROUTE(app, "/api/points/<int>")([&fb_conf](int id) {
+    CROW_ROUTE(app, "/api/points/<int>")([&fbc](int id) {
         try {
-            FirebirdConnection fbc(fb_conf);
+            // FirebirdConnection fbc(fb_conf);
 
             std::string query = "SELECT * FROM RD2_POINTS WHERE SESSION_ID=" + std::to_string(id);
             std::cout << query << std::endl;
