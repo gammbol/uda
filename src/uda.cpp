@@ -129,7 +129,7 @@ int main()
         }
     });
 
-    app.port(8080).multithreaded().run();
+    app.port(CROW_PORT).multithreaded().run();
 
     return 0;
 }
