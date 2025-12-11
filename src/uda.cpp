@@ -143,7 +143,7 @@ int main()
         }
     });
 
-    app.port(CROW_PORT).multithreaded().run();
+    app.port(CROW_PORT).concurrency(8).run();
 
     return 0;
 }
