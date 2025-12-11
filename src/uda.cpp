@@ -43,7 +43,7 @@ int main()
         } catch (const std::exception &e) {
             std::cerr << "Error in /api/boards: " << e.what() << std::endl;
 
-            return crow::response(500, "pizdec :(");
+            return crow::response(500, crow::json::wvalue());
         }
     });
 
@@ -61,7 +61,7 @@ int main()
             return crow::response(200, board[0]);
         } catch (const std::exception &e) {
             std::cerr << "Error in /api/boards: " << e.what() << std::endl;
-            return crow::response(500, e.what());
+            return crow::response(500, crow::json::wvalue());
         }
     });
 
@@ -83,7 +83,7 @@ int main()
         } catch (const std::exception &e) {
             std::cerr << "Error in /api/sessions: " << e.what() << std::endl;
 
-            return crow::response(500, e.what());
+            return crow::response(500, crow::json::wvalue());
         }
     });
 
@@ -104,7 +104,7 @@ int main()
             return crow::response(200, session[0]);
         } catch (const std::exception &e) {
             std::cerr << "Error in /api/session: " << e.what() << std::endl;
-            return crow::response(500, e.what());
+            return crow::response(500, crow::json::wvalue());
         }
     });
 
@@ -125,7 +125,21 @@ int main()
             return crow::response(200, result_json);
         } catch (const std::exception &e) {
             std::cerr << "Error in /api/points: " << e.what() << std::endl;
-            return crow::response(500, e.what());
+            return crow::response(500, crow::json::wvalue());
+        }
+    });
+
+    CROW_ROUTE(app, "/api/param/<int>")([&fbc](int id) {
+        try {
+            std::string query = "SELECT * FROM PASSP_SCAN WHERE DEVICE_ID=" + std::to_string(id);
+            std::cout << query << std::endl;
+
+            std::vector<crow::json::wvalue> params = fbc.getSQL(query);
+
+            return crow::response(200, params[0]);
+        } catch (const std::exception &e) {
+            std::cerr << "Error in /api/params: " << e.what() << std::endl;
+            return crow::response(500, crow::json::wvalue());
         }
     });
 
