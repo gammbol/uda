@@ -1,6 +1,7 @@
 #include "fb_connect.h"
 #include <format>
 #include <sstream>
+#include <utility>
 
 void FirebirdConnection::fbInit() {
     using namespace Firebird;
@@ -40,7 +41,7 @@ void FirebirdConnection::fbInit() {
     }
 }
 
-FirebirdConnection::FirebirdConnection(FBConnectionStruct conf) : config(conf) {
+FirebirdConnection::FirebirdConnection(FBConnectionStruct  conf) : config(std::move(conf)) {
     fbInit();
     // provider и attachment инициализируются в connect()
 }
@@ -342,6 +343,9 @@ std::vector<crow::json::wvalue> FirebirdConnection::getSQL(const std::string& qu
         if (localStatus) {
             localStatus->dispose();
         }
+
+    if (result_json.empty())
+        throw std::runtime_error("No results found");
 
     return result_json;
 }

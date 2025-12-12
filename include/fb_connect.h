@@ -34,7 +34,7 @@ private:
   void fbInit();
 
 public:
-  FirebirdConnection(FBConnectionStruct conf);
+  explicit FirebirdConnection(FBConnectionStruct  conf);
   ~FirebirdConnection();
 
   void newConnection(FBConnectionStruct conf);
