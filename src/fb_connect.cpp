@@ -3,6 +3,8 @@
 #include <sstream>
 #include <utility>
 
+std::mutex FirebirdConnection::fb_mutex_;
+
 void FirebirdConnection::fbInit() {
     using namespace Firebird;
 
@@ -143,6 +145,8 @@ void FirebirdConnection::disconnect() {
 
 std::vector<crow::json::wvalue> FirebirdConnection::getSQL(const std::string& query) {
     using namespace Firebird;
+
+    std::lock_guard<std::mutex> lock(fb_mutex_);
 
     if (!isConnected || !attachment) {
         throw std::runtime_error("FirebirdConnection is not connected");

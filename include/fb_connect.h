@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <crow/json.h>
+#include <mutex>
 
 struct FBConnectionStruct {
   std::string db_path;
@@ -17,6 +18,8 @@ struct FBConnectionStruct {
 
 class FirebirdConnection {
 private:
+  static std::mutex fb_mutex_;
+
   bool isConnected = false;
 
   // api

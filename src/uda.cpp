@@ -33,8 +33,10 @@ int main()
 
             // Получаем данные из БД
             std::vector<crow::json::wvalue> boards = fbc.getSQL("SELECT * FROM DEVICES");
-
             fbc.disconnect();
+
+            if (boards.empty())
+                return crow::response(404, "Not found");
 
             // ПРЕОБРАЗУЕМ вектор в JSON-массив
             crow::json::wvalue result_json;
@@ -65,8 +67,10 @@ int main()
             std::vector<crow::json::wvalue> board = fbc.getSQL(query);
             // crow::json::wvalue result_json;
             // result_json[0] = std::move(board[0]);
-
             fbc.disconnect();
+
+            if (board.empty())
+                return crow::response(404, "Not found");
 
             return crow::response(200, board[0]);
         } catch (const std::exception &e) {
@@ -86,8 +90,10 @@ int main()
             std::cout << query << std::endl;
 
             std::vector<crow::json::wvalue> sessions = fbc.getSQL(query);
-
             fbc.disconnect();
+
+            if (sessions.empty())
+                return crow::response(404, "Not found");
 
             crow::json::wvalue result_json;
             for (size_t i = 0; i < sessions.size(); i++) {
@@ -113,8 +119,10 @@ int main()
             std::cout << query << std::endl;
 
             std::vector<crow::json::wvalue> session = fbc.getSQL(query);
-
             fbc.disconnect();
+
+            if (session.empty())
+                return crow::response(404, "Not found");
 
             // crow::json::wvalue result_json;
             // for (size_t i = 0; i < session.size(); i++) {
@@ -139,8 +147,10 @@ int main()
             std::cout << query << std::endl;
 
             std::vector<crow::json::wvalue> points = fbc.getSQL(query);
-
             fbc.disconnect();
+
+            if (points.empty())
+                return crow::response(404, "Not found");
 
             crow::json::wvalue result_json;
             for (size_t i = 0; i < points.size(); i++) {
@@ -165,8 +175,10 @@ int main()
             std::cout << query << std::endl;
 
             std::vector<crow::json::wvalue> params = fbc.getSQL(query);
-
             fbc.disconnect();
+
+            if (params.empty())
+                return crow::response(404, "Not found");
 
             return crow::response(200, params[0]);
         } catch (const std::exception &e) {
